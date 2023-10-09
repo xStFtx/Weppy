@@ -51,7 +51,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         sleep(Duration::from_secs(1)).await;
     }
 
-    // Wait for all tasks to complete
+    // Wait for all tasks to complet
     for task in tasks {
         task.await?;
     }
