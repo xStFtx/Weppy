@@ -1,11 +1,20 @@
+use futures::future::join_all;
+use log::{error, info};
 use reqwest::Client;
 use scraper::{Html, Selector};
 use std::error::Error;
-use tokio::time::{Duration, sleep};
+use std::fmt;
 use std::sync::{Arc, Mutex};
+use thiserror::Error;
+use tokio::time::{sleep, Duration}; // Add imports for log macros
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn Error>> {
+    // Initialize the logger with log level "info"
+    env_logger::builder()
+        .filter_level(log::LevelFilter::Info)
+        .init();
+
     // Initialize the HTTP client
     let client = Client::builder()
         .timeout(Duration::from_secs(10)) // Set a timeout of 10 seconds for requests
@@ -22,7 +31,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     for url in target_urls {
         // Clone the client for each request (for concurrency)
         let client = client.clone();
-        
+
         // Clone the shared scraped_data
         let scraped_data = Arc::clone(&scraped_data);
 
@@ -33,8 +42,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     // Lock the mutex and push the data to the shared vector
                     let mut data_guard = scraped_data.lock().unwrap();
                     data_guard.push(data);
-                },
-                Err(err) => eprintln!("Error for '{}': {}", url, err),
+                }
+                Err(err) => error!("Error for '{}': {}", url, err),
             }
         }));
 
@@ -52,8 +61,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     // Process the scraped data (e.g., saving to a database or further analysis)
     for data in scraped_data.iter() {
-        println!("Page Title for '{}': {}", data.url, data.title);
-        println!("Links on '{}': {:?}", data.url, data.links);
+        info!("Page Title for '{}': {}", data.url, data.title);
+        info!("Links on '{}': {:?}", data.url, data.links);
     }
 
     Ok(())
@@ -101,7 +110,11 @@ async fn fetch_and_scrape(client: &Client, url: &str) -> Result<ScrapedData, Box
             links,
         })
     } else {
-        Err(format!("HTTP request failed with status code: {}", response.status()).into())
+        Err(format!(
+            "HTTP request failed with status code: {}",
+            response.status()
+        )
+        .into())
     }
 }
 
@@ -111,6 +124,7 @@ fn read_target_urls(filename: &str) -> Result<Vec<String>, Box<dyn Error>> {
     Ok(urls)
 }
 
+#[derive(Debug)]
 struct ScrapedData {
     url: String,
     title: String,
